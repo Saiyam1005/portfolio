@@ -49,15 +49,21 @@ function App() {
     sessionStorage.setItem('splashPlayed', 'true')
     window.scrollTo(0, 0)
     setSplashDone(true)
-    setScrollUnlocked(true)
-    // unlock scroll
-    document.body.style.overflow = ''
     
-    // Snaps coordinate to 0 in next tick and refreshes GSAP ScrollTriggers
+    // For mobile viewports, delay unlocking body scroll by 800ms to fully consume swipe inertia
+    const unlockDelay = isMobile ? 800 : 0;
+
     setTimeout(() => {
+      setScrollUnlocked(true)
+      document.body.style.overflow = ''
       window.scrollTo(0, 0)
-      ScrollTrigger.refresh()
-    }, 100)
+      
+      // Secondary snap in the next ticks to ensure ScrollTrigger recalibrates correctly at top 0
+      setTimeout(() => {
+        window.scrollTo(0, 0)
+        ScrollTrigger.refresh()
+      }, 50)
+    }, unlockDelay)
   }
 
   /* ── Lock scroll during splash ──────────────────────── */
@@ -74,7 +80,7 @@ function App() {
 
   /* ── Lenis Smooth Scroll ─────────────────────────────── */
   useEffect(() => {
-    if (!splashDone) return
+    if (!splashDone || isMobile) return
 
     const lenis = new Lenis({
       duration: 1.4,
@@ -98,7 +104,7 @@ function App() {
       lenis.destroy()
       gsap.ticker.remove(lenis.raf)
     }
-  }, [splashDone])
+  }, [splashDone, isMobile])
 
   /* ── Custom Cursor ───────────────────────────────────── */
   useEffect(() => {
