@@ -17,14 +17,14 @@ import styles from './SplashScreen.module.css';
      5. Once scroll exceeds 100vh, the splash screen unmounts cleanly.
    ═══════════════════════════════════════════════════════ */
 
-const SplashScreen = ({ onComplete, onUnlockScroll }) => {
+const SplashScreen = ({ onComplete, onUnlockScroll, isMobile }) => {
   const videoRef = useRef(null);
 
   // 'gate'    → show the click-to-enter screen
   // 'playing' → video playing with audio
   // 'ended'   → video done, show scroll CTA & unlock native scroll-to-reveal
   const [phase, setPhase] = useState('gate');
-  const [scrollY, setScrollY] = useState(0);
+  const [translateYValue, setTranslateYValue] = useState(0);
   const [isEntering, setIsEntering] = useState(false);
 
   /* ── Start video with sound after user click ── */
@@ -50,26 +50,40 @@ const SplashScreen = ({ onComplete, onUnlockScroll }) => {
   /* ── Video ended ── */
   const handleEnded = () => {
     setPhase('ended');
-    if (onUnlockScroll) {
+    if (!isMobile && onUnlockScroll) {
       onUnlockScroll();
     }
   };
 
-  /* ── Smooth Scroll to Main Site on CTA click ── */
-  const handleEnterBtnClick = () => {
-    window.scrollTo({
-      top: window.innerHeight,
-      behavior: 'smooth'
-    });
+  /* ── Unified mobile exit animation trigger ── */
+  const triggerMobileExit = () => {
+    if (isEntering) return;
+    setIsEntering(true);
+    setTranslateYValue(window.innerHeight);
+    setTimeout(() => {
+      onComplete();
+    }, 900);
   };
 
-  /* ── Track natural viewport scroll to translate curtain & unmount ── */
+  /* ── Smooth Scroll to Main Site on CTA click ── */
+  const handleEnterBtnClick = () => {
+    if (isMobile) {
+      triggerMobileExit();
+    } else {
+      window.scrollTo({
+        top: window.innerHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  /* ── Track natural viewport scroll to translate curtain & unmount (Desktop only) ── */
   useEffect(() => {
-    if (phase !== 'ended') return;
+    if (phase !== 'ended' || isMobile) return;
 
     const handleScroll = () => {
       const currentScroll = window.scrollY;
-      setScrollY(currentScroll);
+      setTranslateYValue(currentScroll);
 
       // Once the user has scrolled past 100vh, unmount the splash cleanly
       if (currentScroll >= window.innerHeight && !isEntering) {
@@ -80,21 +94,52 @@ const SplashScreen = ({ onComplete, onUnlockScroll }) => {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [phase, isEntering, onComplete]);
+  }, [phase, isEntering, onComplete, isMobile]);
+
+  /* ── Mobile Swipe-Up gesture tracking ── */
+  useEffect(() => {
+    if (phase !== 'ended' || !isMobile || isEntering) return;
+
+    let touchStartY = 0;
+
+    const handleTouchStart = (e) => {
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      if (isEntering) return;
+      const touchCurrentY = e.touches[0].clientY;
+      const diffY = touchStartY - touchCurrentY;
+
+      // Swipe up threshold of 40px
+      if (diffY > 40) {
+        triggerMobileExit();
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [phase, isMobile, isEntering]);
 
   return (
     <div
       className={styles.splash}
       style={{
-        transform: `translateY(${-scrollY}px)`,
-        pointerEvents: scrollY >= window.innerHeight ? 'none' : 'auto'
+        transform: `translateY(${-translateYValue}px)`,
+        transition: isMobile && translateYValue > 0 ? 'transform 0.9s cubic-bezier(0.76, 0, 0.24, 1)' : 'none',
+        pointerEvents: translateYValue >= window.innerHeight ? 'none' : 'auto'
       }}
     >
       {/* ── Video with scroll parallax ── */}
       <div
         className={styles.videoWrapper}
         style={{
-          transform: `translateY(${scrollY * 0.35}px)`
+          transform: `translateY(${translateYValue * 0.35}px)`
         }}
       >
         <video

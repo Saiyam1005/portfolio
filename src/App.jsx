@@ -29,12 +29,20 @@ function App() {
     return sessionStorage.getItem('splashPlayed') === 'true'
   })
 
+  // Mobile detection for custom layout and scrolling adjustments
+  const [isMobile, setIsMobile] = useState(false);
+
   // Ensure scroll is reset to top on page load and manual scroll restoration is active
   useEffect(() => {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
     window.scrollTo(0, 0);
+
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleSplashComplete = () => {
@@ -143,11 +151,12 @@ function App() {
         <SplashScreen 
           onComplete={handleSplashComplete} 
           onUnlockScroll={() => setScrollUnlocked(true)} 
+          isMobile={isMobile}
         />
       )}
 
-      {/* Spacer pushing the website content down by 100vh during the scroll reveal */}
-      {!splashDone && (
+      {/* Spacer pushing the website content down by 100vh during the desktop scroll reveal */}
+      {!splashDone && !isMobile && (
         <div style={{ height: '100vh', width: '100%', background: 'var(--bg-dark)' }} />
       )}
 
